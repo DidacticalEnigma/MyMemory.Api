@@ -22,7 +22,8 @@ namespace MyMemory.Api
 
         public MailAddress MailAddress { get; }
 
-        public TranslationRequest(string queriedText,
+        public TranslationRequest(
+            string queriedText,
             string sourceLanguage,
             string targetLanguage,
             bool machineTranslated = true,
@@ -41,7 +42,8 @@ namespace MyMemory.Api
             MailAddress = mailAddress;
         }
 
-        public TranslationRequest(TranslationRequest cloneRequest,
+        public TranslationRequest(
+            TranslationRequest cloneRequest,
             string queriedText,
             string sourceLanguage = null,
             string targetLanguage = null,

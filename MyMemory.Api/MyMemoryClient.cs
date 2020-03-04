@@ -2,6 +2,7 @@
 using System.Net.Http;
 using System.Runtime.InteropServices.ComTypes;
 using System.Threading.Tasks;
+using System.Web;
 using Newtonsoft.Json;
 
 namespace MyMemory.Api
@@ -10,27 +11,72 @@ namespace MyMemory.Api
     {
         private readonly HttpClient client;
 
-        public MyMemoryClient(HttpClient client = null)
+        private readonly Uri baseUri;
+
+        public MyMemoryClient(Uri baseUri = null, HttpClient client = null)
         {
             this.client = client ?? new HttpClient();
+            this.baseUri = baseUri ?? new Uri("https://api.mymemory.translated.net");
         }
 
-        public Task<ApiKey> GenerateKey(string username, string password)
+        public async Task<ApiKey> GenerateKey(string username, string password)
         {
-            throw new NotImplementedException();
+            var response = await client.GetAsync(
+                new Uri(
+                    this.baseUri,
+                    $"keygen?user={HttpUtility.UrlEncode(username)}&pass={HttpUtility.UrlEncode(password)}"));
+            if (response.IsSuccessStatusCode)
+            {
+                var result = JsonConvert.DeserializeObject<KeyGenResponse>(await response.Content.ReadAsStringAsync());
+                return new ApiKey(result.Key);
+            }
+            else
+            {
+                throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
+            }
         }
 
         public async Task<TranslationResponse> Translate(TranslationRequest request)
         {
-            var response = await client.GetAsync("https://api.mymemory.translated.net/get?q=Hello%20world&langpair=en|it");
+            string q = HttpUtility.UrlEncode(request.QueriedText);
+            string langPair = HttpUtility.UrlEncode($"{request.SourceLanguage}|{request.TargetLanguage}");
+            int mt = request.MachineTranslated ? 1 : 0;
+            string key = request.ApiKey.IsAnonymous ? "" : $"&key={HttpUtility.UrlEncode(request.ApiKey.ToString())}";
+            int onlyprivate = request.PrivateMatchesOnly ? 1 : 0;
+            string ip = request.SourceIp == null ? "" : $"&ip={HttpUtility.UrlEncode(request.SourceIp.ToString())}";
+            string de = request.MailAddress == null ? "" : $"&de={HttpUtility.UrlEncode(request.MailAddress.ToString())}";
+            var response = await client.GetAsync(
+                new Uri(
+                    this.baseUri,
+                    $"get?q={q}&langpair={langPair}&mt={mt}{key}&onlyprivate={onlyprivate}{ip}{de}"));
             if (response.IsSuccessStatusCode)
             {
                 return JsonConvert.DeserializeObject<TranslationResponse>(await response.Content.ReadAsStringAsync());
             }
             else
             {
-                // TODO
-                throw new Exception();
+                throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
+            }
+        }
+
+        public async Task Set(TranslationSetRequest request)
+        {
+            string seg = HttpUtility.UrlEncode(request.SourceText);
+            string tra = HttpUtility.UrlEncode(request.TranslatedText);
+            string langPair = HttpUtility.UrlEncode($"{request.SourceLanguage}|{request.TargetLanguage}");
+            string key = request.ApiKey.IsAnonymous ? "" : $"&key={HttpUtility.UrlEncode(request.ApiKey.ToString())}";
+            string de = request.MailAddress == null ? "" : $"&de={HttpUtility.UrlEncode(request.MailAddress.ToString())}";
+            var response = await client.GetAsync(
+                new Uri(
+                    this.baseUri,
+                    $"set?seg={seg}&tra={tra}&langpair={langPair}{key}{de}"));
+            if (response.IsSuccessStatusCode)
+            {
+                
+            }
+            else
+            {
+                throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
             }
         }
     }
@@ -65,6 +111,11 @@ namespace MyMemory.Api
         public static bool operator !=(ApiKey left, ApiKey right)
         {
             return !left.Equals(right);
+        }
+
+        public override string ToString()
+        {
+            return key;
         }
 
         private readonly string key;
