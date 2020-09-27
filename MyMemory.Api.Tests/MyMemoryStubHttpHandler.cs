@@ -50,6 +50,15 @@ namespace Tests
                 });
             }
 
+            if (request.RequestUri == new Uri("https://api.mymemory.translated.net/subjects"))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        "[\"Accounting\",\"Aerospace\",\"Agriculture_and_Farming\",\"Archeology\",\"architecture\",\"Art\",\"Astronomy\",\"Automotive_Industry\",\"Banking\",\"Chemical\",\"Civil_Engineering\",\"Computer_Science\",\"Credit_Management\",\"Culinary\",\"Finances\",\"Forestry\",\"General\",\"History\",\"Insurance\",\"Legal_and_Notarial\",\"Literary_Translations\",\"Marketing\",\"Matematics_and_Physics\",\"Mechanical\",\"Medical\",\"Music\",\"Nautica\",\"Pharmaceuticals\",\"Religion\",\"Science\",\"Social_Science\",\"Tourism\"]")
+                });
+            }
+
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError)
             {
                 Content = new StringContent("")

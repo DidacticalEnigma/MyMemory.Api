@@ -159,7 +159,7 @@ namespace MyMemory.Api
             var response = await client.GetAsync(
                 new Uri(
                     this.baseUri,
-                    $"subjects"));
+                    "subjects"));
             if (response.IsSuccessStatusCode)
             {
                 return JsonConvert.DeserializeObject<IEnumerable<string>>(await response.Content.ReadAsStringAsync());
