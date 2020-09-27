@@ -1,6 +1,10 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
 using System.Net.Http;
 using System.Runtime.InteropServices.ComTypes;
+using System.Text;
 using System.Threading.Tasks;
 using System.Web;
 using Newtonsoft.Json;
@@ -21,18 +25,17 @@ namespace MyMemory.Api
 
         public async Task<ApiKey> GenerateKey(string username, string password)
         {
-            var response = await client.GetAsync(
-                new Uri(
-                    this.baseUri,
-                    $"keygen?user={HttpUtility.UrlEncode(username)}&pass={HttpUtility.UrlEncode(password)}"));
-            if (response.IsSuccessStatusCode)
+            using (var response = await client.GetAsync(new Uri(this.baseUri, $"keygen?user={HttpUtility.UrlEncode(username)}&pass={HttpUtility.UrlEncode(password)}")))
             {
-                var result = JsonConvert.DeserializeObject<KeyGenResponse>(await response.Content.ReadAsStringAsync());
-                return new ApiKey(result.Key);
-            }
-            else
-            {
-                throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = JsonConvert.DeserializeObject<KeyGenResponse>(await response.Content.ReadAsStringAsync());
+                    return new ApiKey(result.Key);
+                }
+                else
+                {
+                    throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
+                }
             }
         }
 
@@ -45,17 +48,16 @@ namespace MyMemory.Api
             int onlyprivate = request.PrivateMatchesOnly ? 1 : 0;
             string ip = request.SourceIp == null ? "" : $"&ip={HttpUtility.UrlEncode(request.SourceIp.ToString())}";
             string de = request.MailAddress == null ? "" : $"&de={HttpUtility.UrlEncode(request.MailAddress.ToString())}";
-            var response = await client.GetAsync(
-                new Uri(
-                    this.baseUri,
-                    $"get?q={q}&langpair={langPair}&mt={mt}{key}&onlyprivate={onlyprivate}{ip}{de}"));
-            if (response.IsSuccessStatusCode)
+            using (var response = await client.GetAsync(new Uri(this.baseUri, $"get?q={q}&langpair={langPair}&mt={mt}{key}&onlyprivate={onlyprivate}{ip}{de}")))
             {
-                return JsonConvert.DeserializeObject<TranslationResponse>(await response.Content.ReadAsStringAsync());
-            }
-            else
-            {
-                throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
+                if (response.IsSuccessStatusCode)
+                {
+                    return JsonConvert.DeserializeObject<TranslationResponse>(await response.Content.ReadAsStringAsync());
+                }
+                else
+                {
+                    throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
+                }
             }
         }
 
@@ -66,63 +68,106 @@ namespace MyMemory.Api
             string langPair = HttpUtility.UrlEncode($"{request.SourceLanguage}|{request.TargetLanguage}");
             string key = request.ApiKey.IsAnonymous ? "" : $"&key={HttpUtility.UrlEncode(request.ApiKey.ToString())}";
             string de = request.MailAddress == null ? "" : $"&de={HttpUtility.UrlEncode(request.MailAddress.ToString())}";
+            using (var response = await client.GetAsync(new Uri(this.baseUri, $"set?seg={seg}&tra={tra}&langpair={langPair}{key}{de}")))
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                
+                }
+                else
+                {
+                    throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
+                }
+            }
+        }
+
+        public async Task Import(ImportRequest request)
+        {
+            using (var content = new MultipartFormDataContent())
+            {
+                content.Add(new StreamContent(request.Input), "tmx", request.FileName);
+
+                if (request.Description != null)
+                {
+                    content.Add(new StringContent(request.Description, Encoding.UTF8), "name");
+                }
+
+                if (request.Subject != null)
+                {
+                    content.Add(new StringContent(request.Subject, Encoding.UTF8), "subj");
+                }
+
+                if (request.IsPrivate != null)
+                {
+                    content.Add(new StringContent(request.IsPrivate.Value ? "1" : "0", Encoding.UTF8), "private");
+                }
+
+                if (!request.ApiKey.IsAnonymous)
+                {
+                    content.Add(new StringContent(request.ApiKey.ToString(), Encoding.UTF8), "key");
+                }
+
+                if (request.SourceUrl != null)
+                {
+                    content.Add(new StringContent(request.SourceUrl.ToString(), Encoding.UTF8), "surl");
+                }
+
+                if (request.TargetUrl != null)
+                {
+                    content.Add(new StringContent(request.TargetUrl.ToString(), Encoding.UTF8), "turl");
+                }
+
+                using (var response =
+                    await client.PostAsync(
+                        new Uri(
+                            this.baseUri,
+                            $"tmx/import"),
+                        content))
+                {
+                    if (response.IsSuccessStatusCode)
+                    {
+                        
+                    }
+                    else
+                    {
+                        throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
+                    }
+                }
+            }
+        }
+
+        public async Task<StatusResponse> Status(StatusRequest request)
+        {
+            var key = HttpUtility.UrlEncode(request.ApiKey.ToString());
+            var name = request.Description == null ? "" : $"&name={HttpUtility.UrlEncode(request.Description)}";
+            var status = request.Status == null ? "" : $"&status={HttpUtility.UrlEncode(((int)request.Status.Value).ToString())}";
+            using (var response = await client.GetAsync(new Uri(this.baseUri, $"tmx/status?key={key}{name}{status}")))
+            {
+                if (response.IsSuccessStatusCode)
+                {
+                    return JsonConvert.DeserializeObject<StatusResponse>(await response.Content.ReadAsStringAsync());
+                }
+                else
+                {
+                    throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
+                }
+            }
+        }
+
+        public async Task<IEnumerable<string>> ListSubjects()
+        {
             var response = await client.GetAsync(
                 new Uri(
                     this.baseUri,
-                    $"set?seg={seg}&tra={tra}&langpair={langPair}{key}{de}"));
+                    $"subjects"));
             if (response.IsSuccessStatusCode)
             {
-                
+                return JsonConvert.DeserializeObject<IEnumerable<string>>(await response.Content.ReadAsStringAsync());
             }
             else
             {
                 throw new MyMemoryApiException(response.StatusCode, await response.Content.ReadAsStringAsync());
             }
-        }
-    }
-
-    public struct ApiKey : IEquatable<ApiKey>
-    {
-        public static readonly ApiKey AnonymousAccess = default;
-
-        public bool IsAnonymous => key == null;
-
-        public bool Equals(ApiKey other)
-        {
-            return String.Equals(key, other.key);
-        }
-
-        public override bool Equals(object obj)
-        {
-            if (ReferenceEquals(null, obj)) return false;
-            return obj is ApiKey other && Equals(other);
-        }
-
-        public override int GetHashCode()
-        {
-            return (key != null ? key.GetHashCode() : 0);
-        }
-
-        public static bool operator ==(ApiKey left, ApiKey right)
-        {
-            return left.Equals(right);
-        }
-
-        public static bool operator !=(ApiKey left, ApiKey right)
-        {
-            return !left.Equals(right);
-        }
-
-        public override string ToString()
-        {
-            return key;
-        }
-
-        private readonly string key;
-
-        public ApiKey(string key)
-        {
-            this.key = key;
         }
     }
 }
